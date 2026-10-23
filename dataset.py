@@ -11,62 +11,70 @@ class OmamaDataset(Dataset):
         self.data_dir = data_dir
         self.crop_size = crop_size
         self.samples = []
-        image_dir = os.path.join(data_dir, "images")
-        patient_folders = [f for f in os.listdir(image_dir) if not f.startswith('.')]
         
-        for patient in patient_folders:
-            patient_image_path = os.path.join(image_dir, patient)
-            patient_meta_path = os.path.join(data_dir, "metadata", patient)
-            npz_files = glob.glob(os.path.join(patient_image_path, "*.npz"))
+        image_dir = os.path.join(data_dir, "images")
+        # Loop through the Study folders directly (e.g., 2.25.12345...)
+        study_folders = [f for f in os.listdir(image_dir) if not f.startswith('.')]
+        
+        for study in study_folders:
+            study_image_path = os.path.join(image_dir, study)
+            study_meta_path = os.path.join(data_dir, "metadata", study)
             
-            for npz_file in npz_files:
-                filename = os.path.basename(npz_file).replace('.npz', '.json')
-                json_file = os.path.join(patient_meta_path, filename)
-                if os.path.exists(json_file):
-                    self.samples.append((npz_file, json_file))
+            npz_files = glob.glob(os.path.join(study_image_path, "*.npz"))
+            
+            # We only want studies that have exactly 4 views
+            if len(npz_files) == 4:
+                self.samples.append((study, npz_files, study_meta_path))
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        img_path, meta_path = self.samples[idx]
-        data = np.load(img_path)
-        image = data['data']
+        study_id, npz_files, meta_dir = self.samples[idx]
         
-        image = image.astype(np.float32) / 255.0 
+        images = []
+        study_label = 0.0
         
-        with open(meta_path, 'r') as f:
-            meta = json.load(f)
+        # Loop through all 4 views for this study
+        for npz_file in npz_files:
+            # 1. Load Image
+            data = np.load(npz_file)
+            img = data['data'].astype(np.float32) / 255.0
             
-        label_str = meta.get('label', 'NonCancer')
-        label = 1.0 if label_str == 'IndexCancer' else 0.0
-        
-        # --- NEW: ROI CROPPING ---
-        image_tensor = torch.from_numpy(image).unsqueeze(0) # Add channel dim for torchvision
-        
-        if label == 1.0 and 'coords' in meta:
-            # Crop around the cancer coordinates
-            x_min, y_min, x_max, y_max = meta['coords']
-            # Add a margin so we see the tissue around the cancer
-            margin = 20
-            x_min = max(0, x_min - margin)
-            y_min = max(0, y_min - margin)
-            x_max = min(256, x_max + margin)
-            y_max = min(256, y_max + margin)
+            # 2. Load Metadata
+            filename = os.path.basename(npz_file).replace('.npz', '.json')
+            json_file = os.path.join(meta_dir, filename)
+            with open(json_file, 'r') as f:
+                meta = json.load(f)
             
-            # Crop and then resize to a standard size (128x128)
-            image_tensor = TF.crop(image_tensor, y_min, x_min, y_max - y_min, x_max - x_min)
-            image_tensor = TF.resize(image_tensor, [self.crop_size, self.crop_size])
-        else:
-            # For normal images, just crop the center of the breast
-            image_tensor = TF.center_crop(image_tensor, [self.crop_size, self.crop_size])
+            # 3. If ANY view has cancer, the whole study is positive
+            if meta.get('label') == 'IndexCancer':
+                study_label = 1.0
+                
+            # 4. Crop and Normalize
+            img_tensor = torch.from_numpy(img).unsqueeze(0)
+            if meta.get('label') == 'IndexCancer' and 'coords' in meta:
+                x_min, y_min, x_max, y_max = meta['coords']
+                margin = 20
+                x_min = max(0, x_min - margin)
+                y_min = max(0, y_min - margin)
+                x_max = min(256, x_max + margin)
+                y_max = min(256, y_max + margin)
+                img_tensor = TF.crop(img_tensor, y_min, x_min, y_max - y_min, x_max - x_min)
+                img_tensor = TF.resize(img_tensor, [self.crop_size, self.crop_size])
+            else:
+                img_tensor = TF.center_crop(img_tensor, [self.crop_size, self.crop_size])
+                
+            img = img_tensor.squeeze(0).numpy()
             
-        image = image_tensor.squeeze(0).numpy()
-        
-        # Normalize brightness
-        mean = np.mean(image)
-        std = np.std(image)
-        if std > 0: 
-            image = (image - mean) / std
+            mean = np.mean(img)
+            std = np.std(img)
+            if std > 0:
+                img = (img - mean) / std
+                
+            images.append(img)
             
-        return image, label
+        # Stack the 4 images into a single tensor: Shape becomes (4, 128, 128)
+        images = np.stack(images)
+            
+        return images, study_label
