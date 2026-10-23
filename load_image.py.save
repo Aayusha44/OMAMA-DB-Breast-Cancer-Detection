@@ -1,0 +1,68 @@
+import numpy as np
+import json
+import matplotlib.pyplot as plt
+
+# 1. Define the paths to your data
+# Note: We are using the full path from your Downloads folder
+patient_id = "2.25.100019467787541382690455566629544103893"
+image_id = "2.25.124381528605702917763164197238060295247"
+
+# Path to the .npz image
+img_path = f"/Users/ab/Downloads/256x256_studylevel/images/{patient_id}/{image_id}.npz"
+# Path to the .json metadata
+meta_path = f"/Users/ab/Downloads/256x256_studylevel/metadata/{patient_id}/{image_id}.json"
+
+# 2. Load the metadata (JSON)
+with open(meta_path, 'r') as f:
+    metadata = json.load(f)
+    print("--- Metadata ---")
+    print(metadata)
+
+# 3. Load the image (NPZ)
+# npz files can contain multiple arrays, so we use np.load and check the keys
+data = np.load(img_path)
+print("\n--- NPZ Keys ---")
+print(data.files) # This tells us the name of the array inside
+
+# Usually, the image array is the first item in the list
+image_array = data[data.files[0]]
+print("\n--- Image Shape ---")
+print(image_array.shape)
+
+# 4. Display the image
+plt.imshow(image_array, cmap='gray')
+plt.title(f"Image ID: {image_id[-5:]}") # Showing just the last 5 digits for a clean title
+plt.axis('off')
+plt.show() 
+cat > load_image.py << 'EOF'
+import numpy as np
+import json
+import matplotlib.pyplot as plt
+
+patient_id = "2.25.100019467787541382690455566629544103893"
+image_id = "2.25.124381528605702917763164197238060295247"
+
+img_path = f"/Users/ab/Downloads/256x256_studylevel/images/{patient_id}/{image_id}.npz"
+meta_path = f"/Users/ab/Downloads/256x256_studylevel/metadata/{patient_id}/{image_id}.json"
+
+with open(meta_path, 'r') as f:
+    metadata = json.load(f)
+    print("--- Metadata ---")
+    print(metadata)
+
+data = np.load(img_path)
+print("\n--- NPZ Keys ---")
+print(data.files) 
+
+image_array = data[data.files[0]]
+print("\n--- Image Shape ---")
+print(image_array.shape)
+
+plt.imshow(image_array, cmap='gray')
+plt.title(f"Image ID: {image_id[-5:]}")
+plt.axis('off')
+plt.show()
+EOF
+
+
+
