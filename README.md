@@ -6,15 +6,14 @@ This project builds a Convolutional Neural Network (CNN) using PyTorch to detect
 ## Methodology (Study-Level Multiview Pipeline)
 1. **Data Grouping:** Grouped the dataset by Study ID. Each study contains 4 views (Left/Right, CC/MLO). A study is labeled positive (1.0) if *any* of its 4 views contain an `IndexCancer`.
 2. **Early Fusion Architecture:** Stacked the 4 views into a 4-channel tensor. Modified a pre-trained ResNet18 to accept 4 channels in its first convolutional layer (`nn.Conv2d(4, 64, ...)`).
-3. **Outlier Mitigation (ROI Cropping):** For positive views, used the `coords` metadata to crop to the Region of Interest (ROI), preventing background artifacts from confusing the model.
+3. **ROI Cropping:** For positive views, used the `coords` metadata to crop to the Region of Interest (ROI). Negative views were not cropped (see Limitations).
 4. **Normalization:** Applied Z-score normalization to standardize image brightness across all views.
 5. **Hardware:** Trained locally using Apple Silicon (MPS backend).
 
 ## Results
-- **Baseline Model (Single-View, Full Images):** 66.60% Validation Accuracy
-- **Optimized Model (Single-View, ROI Cropped):** 98.58% Validation Accuracy
-- **Final Model (Study-Level Multiview, 4-Channel Fusion):** **99.40% Validation Accuracy**
-
+- **Baseline (Single-View, Full Images):** 66.60% Validation Accuracy
+- **Single-View, ROI Cropped:** 98.58% Validation Accuracy (likely inflated; see Limitations)
+- **Study-Level Multiview, 4-Channel Fusion:** 99.40% Validation Accuracy (likely inflated; see Limitations)
 ## Limitations
 
 - **The ROI-cropped and multiview accuracies (98.58% and 99.40%) are likely inflated.** ROI cropping was applied only to positive (cancer) views, while negative views stayed uncropped. The model may therefore have learned to tell images apart by preprocessing (cropped vs. uncropped) rather than by pathology.
