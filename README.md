@@ -13,7 +13,19 @@ This project builds a Convolutional Neural Network (CNN) using PyTorch to detect
 ## Results
 - **Baseline Model (Single-View, Full Images):** 66.60% Validation Accuracy
 - **Optimized Model (Single-View, ROI Cropped):** 98.58% Validation Accuracy
-- **Final Model (Study-Level Multiview, 4-Channel Fusion):** **99.40% Validation Accuracy** 
+- **Final Model (Study-Level Multiview, 4-Channel Fusion):** **99.40% Validation Accuracy**
+
+## Limitations
+
+- **The ROI-cropped and multiview accuracies (98.58% and 99.40%) are likely inflated.** ROI cropping was applied only to positive (cancer) views, while negative views stayed uncropped. The model may therefore have learned to tell images apart by preprocessing (cropped vs. uncropped) rather than by pathology.
+- Only validation accuracy is reported. Accuracy alone can be misleading in medical imaging, and sensitivity, specificity, and AUC were not measured.
+- The validation split has not been checked for leakage at the patient or study level.
+
+## Next Steps
+
+- Re-run all setups with consistent preprocessing for both classes (for example, crop both classes the same way or crop neither).
+- Report sensitivity, specificity, and AUC alongside accuracy.
+- Use a patient-level train/validation split.
 
 ## How to Run
 1. Install dependencies: `pip install torch torchvision numpy matplotlib`
